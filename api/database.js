@@ -4,7 +4,7 @@ datetime = require(__dirname + "/datetime.js")
 // setup
 var mongodb = require("mongodb");
 var collections = ["games", "gamevars", "leaderboard_scores", 
-"leaderboard_tables", "leaderboard_bans", "playerlevel_levels", "playerlevel_bans",
+"leaderboard_tables", "leaderboard_bans", "playerlevel_levels", "playerchallenge_challenges","playerlevel_bans",
  "achievements", "achievements_players"];
 
 var db = new mongodb.Db(config.mongo.playtomic.name, new mongodb.Server(config.mongo.playtomic.address, config.mongo.playtomic.port, {slave_ok: true}));
