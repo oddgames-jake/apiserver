@@ -54,9 +54,9 @@ describe("gamevars", function() {
     });
     
     it("Value is expected", function() {
-        assert.equal(testdata.testvar1, "testvalue1");
-        assert.equal(testdata.testvar2, "testvalue2");
-        assert.equal(testdata.testvar3, "testvalue3 and the final gamevar");
+        assert.equal(testdata.testvar1["value"], "testvalue1");
+        assert.equal(testdata.testvar2["value"], "testvalue2");
+        assert.equal(testdata.testvar3["value"], "testvalue3 and the final gamevar");
     });
     
     it("V1 JSON structure", function(done) {
