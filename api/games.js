@@ -30,7 +30,10 @@ if(process.env.testing) {
         playerlevels: true,
         gamevars: true,
         geoip: true,
-		achievements: true
+		achievements: true,
+		matchmaker: true,
+		playerchallenges: true,
+		playerprofiles: true
     };
 
     games.ready = true;
@@ -53,7 +56,7 @@ if(process.env.testing) {
                 return setTimeout(refresh, 1000);
             }
 			
-			var keys = ["enabled", "leaderboards", "playerlevels", "gamevars", "geoip", "achievements", "newsletter"];
+			var keys = ["enabled", "leaderboards", "playerlevels", "gamevars", "geoip", "achievements","matchmaker","playerchallenges", "playerlevels", "playerprofiles", "newsletter"];
 
             for(var i=0; i<credentials.length; i++) {
                 var publickey = credentials[i].publickey;

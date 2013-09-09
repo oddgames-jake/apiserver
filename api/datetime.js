@@ -125,8 +125,7 @@ var datetime = module.exports = {
     refresh: function(callback) {
         var d = new Date();
         datetime.utcnow = new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(),  d.getUTCHours(), d.getUTCMinutes(), d.getSeconds());        
-        datetime.now = Math.round(datetime.utcnow.getTime() / 1000);
-
+        datetime.now = Math.round(Date.UTC(datetime.utcnow.getFullYear(),datetime.utcnow.getMonth(),datetime.utcnow.getDate(),datetime.utcnow.getHours(),datetime.utcnow.getMinutes(),datetime.utcnow.getSeconds()) / 1000);
         setTimeout(datetime.refresh, 1000);
     }
 };

@@ -9,6 +9,9 @@ var url = require("url"),
         geoip: require(__dirname + "/geoip.js"),
         leaderboards: require(__dirname + "/leaderboards.js"),
         playerlevels: require(__dirname + "/playerlevels.js"),
+		playerprofiles: require(__dirname + "/playerprofiles.js"),
+		playerchallenges: require(__dirname + "/playerchallenges.js"),
+		matchmaker: require(__dirname + "/matchmaker.js"),
 		achievements: require(__dirname + "/achievements.js"),
 		newsletter: require(__dirname + "/newsletter.js")
     };
@@ -105,15 +108,15 @@ module.exports = {
                 testcallback(false);
             }
 
-            return output.terminate(payload, response, sections[payload.section].sectionCode, "Section '" + payload.section + "' has been disabled for this game (router.js:113)");
+            return output.terminate(payload, response, sections[payload.section].sectionCode, "Section '" + payload.section + "' has been disabled for this game (router.js:111)");
         }
-
+		
         if(!sections[payload.section] || !sections[payload.section][payload.action]) {
             if(testcallback) {
                 testcallback(false);
             }
 
-            return output.terminate(payload, response, 1, "Section '" + payload.section + "' or action '" + payload.action + "' is invalid (router.js:113)");
+            return output.terminate(payload, response, 1, "Section '" + payload.section + "' or action '" + payload.action + "' is invalid (router.js:119)");
         }
 
         sections[payload.section][payload.action](payload, request, response, testcallback);

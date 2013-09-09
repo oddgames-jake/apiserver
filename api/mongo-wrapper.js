@@ -158,10 +158,12 @@ function getConnection(databasename, collectionname, operation, callback) {
     }
 
     var options = {
-        slave_ok: true
+        slave_ok: true,
+		safe: true,
+		w: 1
     };
 
-    var db = new mongodb.Db(database.name, new mongodb.Server(database.address, database.port, options));
+    var db = new mongodb.Db(database.name, new mongodb.Server(database.address, database.port), options);
     db.open(function (error, connection) {
 
         var cnn = {connection: connection, db: db, databasename: databasename, expire: module.exports.expireConnection, inuse: true};
@@ -273,6 +275,25 @@ module.exports = db = {
         getConnection(database, collectionname, "update", function(error, collection, cnn) {
 
             collection.update(options.filter, options.doc, {safe: options.safe || false, upsert: options.upsert || true}, function(error) {
+
+                killConnection(cnn, error);
+
+                if(callback) {
+                    callback(error, error == null);
+                }
+
+                if(error) {
+                    trace("update error: " + error);
+                }
+            });
+        });
+    },
+	
+	    updatedmerge: function(database, collectionname, options, callback) {
+
+        getConnection(database, collectionname, "update", function(error, collection, cnn) {
+
+            collection.update(options.filter, {"$set": options.doc}, {safe: options.safe || true, upsert: options.upsert || true}, function(error) {
 
                 killConnection(cnn, error);
 

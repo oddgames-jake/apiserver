@@ -1,13 +1,15 @@
 var api = require(__dirname + "/../api"),
     output = require(__dirname + "/output.js"),
-    errorcodes = api.errorcodes,
+    errorcodes= require(__dirname + "/../api/errorcodes.js"),
 	testing = process.env.testing || false;
-	
 
 module.exports = function(payload, request, response, testcallback) {
-    api.playerlevels.list(payload, function(error, errorcode, numlevels, levels) {
 
-        if(error) {
+    api.playerprofiles.save(payload, function(error, errorcode, profile){
+
+        // the exception handling differs here because a level can
+        // fail to save because it's already saved
+        if(error && !profile) {
             if(testcallback) {
                 testcallback(error);
             }
@@ -15,7 +17,7 @@ module.exports = function(payload, request, response, testcallback) {
             return output.terminate(payload, response, errorcode, error);
         }
 
-        var r = output.end(payload, response, {levels: levels, numlevels: numlevels}, errorcodes.NoError);
+        var r = output.end(payload, response, { profile: profile }, errorcode);
 
         if(testing && testcallback) {
             testcallback(null, r);

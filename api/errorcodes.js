@@ -41,7 +41,10 @@ module.exports = {
 		
 		NewsletterDisabled: 600,
 		MailChimpNotConfigured: 601,
-		MailChimpError: 602
+		MailChimpError: 602,
+		
+		MatchMakingDisabled: 900,
+		NoChallengeFound: 901
 	},
 
     descriptions: {
@@ -84,6 +87,10 @@ module.exports = {
 		// Newsletter errors
 		"600": "Newsletter API has been disabled for this game",
 		"601": "MailChimp API key is not configured",
-		"602": "The MailChimp API returned an error"
+		"602": "The MailChimp API returned an error",
+		
+		//Matchmaking errors
+		"900": "Matchmaking disabled on server",
+		"901": "Matchmaking failed to find match"
     }
 };

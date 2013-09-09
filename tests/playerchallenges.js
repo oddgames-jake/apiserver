@@ -30,10 +30,8 @@ describe("playerchallenges", function() {
             publickey: testgame.publickey,
             global: true,
 			challengeid: Math.random(),
-            playeraid: Math.random(),
-            playeraname: "ben " + Math.random(),
-			playerbid: Math.random(),
-            playerbname: "ben " + Math.random(),
+            playerids: [Math.random(),Math.random],
+            playeranames: ["ben " + Math.random(),"ben " + Math.random()],
             fields: {},
             data: "sample data" // the challenge data
         };
@@ -71,7 +69,6 @@ describe("playerchallenges", function() {
 
                 assert.equal(json.errorcode, errorcodes.LevelAlreadyExists);
 
-
                 done();
             });
         });
@@ -108,7 +105,7 @@ describe("playerchallenges", function() {
             for(var x in challenge.fields) {
                 assert.equal(json.challenge.fields[x], challenge.fields[x]);
             }
-
+			
             done();
         });
     });
@@ -118,11 +115,6 @@ describe("playerchallenges", function() {
 			publickey: testgame.publickey,
 			challengeid: challenge.challengeid,
             playeraname: "bob " + Math.random(),
-			playeraid: challenge.playeraid,
-			playerbid: challenge.playerbid,
-            playerbname: "bob " + Math.random(),
-            fields: {},
-            data: "sample data" // the challenge data
 			};
 			
 			v1.update(payload, testgame.request, testgame.response, function(error, output) {
