@@ -125,7 +125,6 @@ var playerprofile = module.exports = {
 		return callback("unable to create profile, no ID supplied (api.playerprofile.update:93)", 1001);
 	}
 
-	console.log("Creating player: ",options.playerid);
 	db.playtomic.playerprofiles.get({ filter: { publickey: options.publickey, playerid: options.playerid }, limit: 1}, function(error, profiles) {
 		if(profiles.length != 0 || error){
 			return callback("unable to create profile, ID already exists", 1002);

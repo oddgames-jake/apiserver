@@ -19,8 +19,16 @@ var elodeltas = [34,68,102,136,170,204,238,272,306,340];
 var playtimedeltas = [1,2,3,4,5,6,7,8,9,10];
 var responsetimedeltas = [0,1,1,2,2,3,3,4,4,5];
 
+//performance tracking
+
+//how many times the loop reset and widened scope in search
+var loops = new Array();
+loops[0] = 0;
+loops[1] = 0;
+
 var matchmaker = module.exports = {
 	
+	//challenges a random player of similar quality who has been online recently
 	find: function(payload,callback) {
 	
 		if(startingup == true ||!payload.playerid || !payload.elo || lastpingoffsets == undefined){// || !payload.responsetime || !payload.playtime) {
@@ -28,14 +36,12 @@ var matchmaker = module.exports = {
 		}
 		
 		var cntr = 0;
-		var count =0;
 		// the array of selected possible matches
 		var returns = new Array();
-		console.log("elo",payload.elo);
+		
 		//make a list of potential matches
 		while(true) {
 			dirty.forEach(function(key,val) {
-			count++;
 				if((datetime.now - val.lastping) <= lastpingoffsets[cntr] || true) {
 					if(Math.abs(payload.playtime - val.playtime) <= playtimedeltas[cntr]) {
 				 		if(Math.abs(payload.responsetime - val.responsetime) <= responsetimedeltas[cntr] ) {
@@ -49,12 +55,11 @@ var matchmaker = module.exports = {
 				}
 				else {
 					//sorted by pingtime descending so one fails the rest will
-					console.log("count: ",count,"when skipped");
 					return false;
 				}
 			});
 			cntr++;
-			// if nothing found and at last iteration return first entrant in dirty db(most recent pinger)
+			// if nothing found and by last iteration return first entrant in dirty db(most recent pinger)
 			if(cntr > 9 && returns.length == 0){
 				dirty.forEach( function(key,val){
 					returns.push(key);
@@ -64,7 +69,10 @@ var matchmaker = module.exports = {
 			if(returns.length > 99 || cntr > 9)
 				break;
 		}
-		console.log(count, "records, iterations: ", cntr, "returned", returns.length);
+		
+		loops[0]++;
+		loops[1] += cntr;
+		
 		var selected = 0;
 		var minchallenge = 999;
 		for(var i = 0; i < returns.length; i++){
@@ -80,15 +88,14 @@ var matchmaker = module.exports = {
 		if(otherdata == null) {
 			return callback("unable to find challenge", errorcodes.NoChallengeFound);
 		}
-		console.log(otherdata.elo);
-		// console.log(selectedid);
-		// console.log(otherdata);
-		// update playerprofile(playerid: entry) with new challenge sent
+		
 		var challenge = {};
 		challenge.publickey = payload.publickey;
 		challenge.playerids = [payload.playerid, selectedid];
 		challenge.playernames = [payload.playername, otherdata.playername];
-		
+		challenge.currentturn = [0];	//uses the index of playerids
+		challenge.date = datetime.now;
+		challenge.startdate = challenge.date;
 		db.playtomic.playerprofiles.update({filter: {playerid: selectedid}, 
 			doc: {"$set" : {challengedtime: datetime.now}, "$inc" : {challengestoday: 1}}, 
 			safe: true}, function (error, challenge) {
@@ -102,7 +109,13 @@ var matchmaker = module.exports = {
 				}
 			return callback(null, errorcodes.NoError, clean([challenge], true)[0]);
 		});
-	}
+	},
+	
+	// TODO: Implement me
+	// Matchmakes groups of players, for  team based or > 2 player matches
+	// findmulti: function(payload, callback) {
+	
+	// }
 };
 
 function clean(challenges, data) {
@@ -138,6 +151,7 @@ function clean(challenges, data) {
 
 (function() {
 
+	//defaults until gamevars is loaded
 	var updateFreq = 10000;//ms
 	var testpublickey = "testpublickey";
 	var pingtime = 3600*24*14;//seconds

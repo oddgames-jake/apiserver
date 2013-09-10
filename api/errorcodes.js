@@ -43,6 +43,10 @@ module.exports = {
 		MailChimpNotConfigured: 601,
 		MailChimpError: 602,
 		
+		ChallengesDisabled: 700,
+		WrongPlayersTurn: 701,
+		ChallengeNotFound: 702,
+		
 		MatchMakingDisabled: 900,
 		NoChallengeFound: 901
 	},
@@ -89,8 +93,14 @@ module.exports = {
 		"601": "MailChimp API key is not configured",
 		"602": "The MailChimp API returned an error",
 		
+		//PlayerChallenges Errors
+		"700": "PlayerChallenges API has been disabled for this game",
+		"701": "It's the other players turn",
+		"702": "Challenge not found",
+		
 		//Matchmaking errors
 		"900": "Matchmaking disabled on server",
 		"901": "Matchmaking failed to find match"
+
     }
 };

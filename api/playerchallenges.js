@@ -28,7 +28,7 @@ var playerchallenges = module.exports = {
                 return callback("unable to load challenges (api.playerchallenges.list:65)", errorcodes.GeneralError);
             }
 			
-            return callback(null, errorcodes.NoError, numchallenges, clean(challenges, options.data));
+            return callback(null, errorcodes.NoError, numchallenges, clean(challenges, false));
         });
     },
 
@@ -82,10 +82,9 @@ var playerchallenges = module.exports = {
 
             challenge[x] = options[x];
         }
-
-        //challenge.hash = md5(options.publickey + "." + options.ip + "." + options.name + "." + options.source);
+		
         challenge.date = datetime.now;
-
+		challenge.startdate = datetime.now;
         // check for dupes
         db.playtomic.playerchallenge_challenges.get({ filter: { publickey: challenge.publickey, challengeid: challenge.challengeid }, limit: 1}, function(error, challenges) {
 
@@ -102,7 +101,7 @@ var playerchallenges = module.exports = {
                     return callback("unable to save challenge (api.playerchallenges.save:188)", errorcodes.GeneralError);
                 }
 
-                return callback(null, errorcodes.NoError, clean([challenge], true)[0]);
+                return callback(null, errorcodes.NoError, clean([challenge], false)[0]);
             });
         });
     },
@@ -129,18 +128,18 @@ var playerchallenges = module.exports = {
         db.playtomic.playerchallenge_challenges.get({ filter: { publickey: challenge.publickey, _id: new objectid(options.challengeid) }, limit: 2}, function(error, challenges) {
 
             if (error) {
-                return callback("unable to update challenge (api.playerchallenges.update:152)", errorcodes.GeneralError);
+                return callback("unable to update challenge (api.playerchallenges.update:152)", errorcodes.ChallengeNotFound);
             }
 			
             if(challenges && challenges.length > 1 || challenges.length == 0) {
-                return callback("challenge not found, cannot update", errorcodes.GeneralError, clean(challenges, options.data === true)[0]);
+                return callback("challenge not found, cannot update", errorcodes.ChallengeNotFound, null);
             }
 			
             db.playtomic.playerchallenge_challenges.update({filter: { publickey: challenge.publickey, _id: new objectid(options.challengeid) },doc: {"$set": challenge}, safe: true}, function(error, challenge) {
                 if (error) {
-                    return callback("unable to update challenge (api.playerchallenges.update:161)", errorcodes.GeneralError);
+                    return callback("unable to update challenge (api.playerchallenges.update:161)", errorcodes.ChallengeNotFound);
                 }
-                return callback(null, errorcodes.NoError, clean([challenge], true)[0]);
+                return callback(null, errorcodes.NoError, clean([challenge], false)[0]);
             });
         });
     },
@@ -157,41 +156,56 @@ var playerchallenges = module.exports = {
 		
 		db.playtomic.playerchallenge_challenges.get(query, function(error,challenge) {
 			if(error) {
-				return callback("challenge not found", errorcode.GeneralError);
+				return callback("challenge not found", errorcodes.ChallengeNotFound);
 			}
-			if(!challege.results[options.event].replay[options.retrieveid]) {
+			if(!challenge[0].events[options.eventid].replays[options.retrieveid]) {
 				//handle no replay here
 			}
 			var response = {};
-			response.replay = challenge.results[options.eventid].replay[options.retrieveid];
+			response["replay"] = challenge[0].events[options.eventid].replays[options.retrieveid];
+			
 			return callback(null,errorcodes.NoError,response);
 		});
 	},
 	
 	postresult: function(options, callback) {
-		var query ={
+		var query = {
 			filter: {
 				publickey: options.publickey,
-				_id: options.challengeid
+				_id: new objectid(options.challengeid)
 			}
 		};
 		
-		db.playtomic.playerchallenge_challenges.get(query, function(error, challenge) {
-			if(error) {
-				return callback("challenge not found", errorcode.GeneralError);
+		db.playtomic.playerchallenge_challenges.get(query, function(error, results) {
+			if(error || results.length == 0) {
+				return callback("challenge not found", errorcodes.ChallengeNotFound);
 			}
-			challenge.results[options.eventid].racetimes[options.playerid] = options.result;
-			challenge.results[options.eventid].replay[options.playerid] = options.replay;
-			//put replay somewhere
-			// handle whose turn stuff here
 			
+			var challenge = results[0];
+			delete challenge._id;
 			
-			db.playtomic.playerchallenge_challenges.update({filter: {publickey: challenge.publickey, _id: new objectid(challenge.challengeid)}, doc: {"$set": challenge}, safe: true}, function(error, challenge) {
+			if(challenge.playerids[challenge.currentturn] != options.playerid) {
+				return callback("incorrect player turn",errorcodes.WrongPlayersTurn);
+			}
+			
+			if(!challenge.events) challenge.events = {};
+			if(!challenge.events[options.eventid]){
+				challenge.events[options.eventid] = {}
+				challenge.events[options.eventid].results = {};
+				challenge.events[options.eventid].replays = {};
+			}
+			challenge.events[options.eventid].results[options.playerid] = options.result;
+			challenge.events[options.eventid].replays[options.playerid] = options.replay;
+			challenge.currentturn = (challenge.currentturn + 1) % challenge.playerids.length;
+			
+			db.playtomic.playerchallenge_challenges.update(
+				{filter: {publickey: challenge.publickey, _id: new objectid(options.challengeid)}, 
+				doc: {"$set": challenge}, safe: true, upsert: false}, function(error, challenge) {
 				if(error) {
-					return callback("challenge not found", errorcode.GeneralError);
+					return callback("challenge not found", errorcodes.GeneralError);
 				}
 				
-				return callback(null,errorcodes.NoError, clean([challenge],true)[0]);
+				return callback(null,errorcodes.NoError, clean([challenge],false)[0]);
 			
 			});
 		});
@@ -199,7 +213,7 @@ var playerchallenges = module.exports = {
 	}
 };
 
-function clean(challenges, data) {
+function clean(challenges, replay) {
 
     for(var i=0; i<challenges.length; i++) {
 
@@ -216,17 +230,15 @@ function clean(challenges, data) {
                 challenge.fields[x] = utils.unescape(challenge.fields[x]);
             }
         }
-		for(var x in challenge.results) {
-		 delete x.replay;
+		if(replay === false) {
+			for(var x in challenge.events) {
+				delete challenge.events[x].replays;
+			}
 		}
+		
 		challenge.rdate = utils.friendlyDate(utils.fromTimestamp(challenge.date));
-        delete challenge.hash;
 		challenge.challengeid = challenge._id;
 		delete challenge._id;
-		//set this up to clear out replay data
-//        if(data !== true) {
- //           delete challenge.results.replays;
-   //     }
     }
 
     return challenges;
