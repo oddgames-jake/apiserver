@@ -197,6 +197,7 @@ var playerchallenges = module.exports = {
 			challenge.events[options.eventid].results[options.playerid] = options.result;
 			challenge.events[options.eventid].replays[options.playerid] = options.replay;
 			challenge.currentturn = (challenge.currentturn + 1) % challenge.playerids.length;
+			challenge.currentevent = options.eventid;
 			
 			db.playtomic.playerchallenge_challenges.update(
 				{filter: {publickey: challenge.publickey, _id: new objectid(options.challengeid)}, 
