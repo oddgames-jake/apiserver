@@ -274,8 +274,8 @@ module.exports = db = {
 
         getConnection(database, collectionname, "update", function(error, collection, cnn) {
 
-            collection.update(options.filter, options.doc, {safe: options.safe || false, upsert: options.upsert || true}, function(error) {
-
+            collection.update(options.filter, options.doc, {safe: options.safe || false, upsert: options.upsert || false, multi: options.multi || false}, function(error) {
+				
                 killConnection(cnn, error);
 
                 if(callback) {
