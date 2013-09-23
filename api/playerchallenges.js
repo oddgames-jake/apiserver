@@ -13,7 +13,7 @@ var playerchallenges = module.exports = {
 
     list:function (options, callback) {
 	
-		if(!options.challengeid) {
+		if(!options.playerid) {
             return callback("unable to list challenges (api.playerchallenges.list)", errorcodes.GeneralError);
         }
         var query = {
