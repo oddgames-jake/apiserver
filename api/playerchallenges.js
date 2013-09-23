@@ -12,30 +12,44 @@ var config = require(__dirname + "/config.js"),
 var playerchallenges = module.exports = {
 
     list:function (options, callback) {
-		
+	
+		if(!options.challengeid) {
+            return callback("unable to list challenges (api.playerchallenges.list)", errorcodes.GeneralError);
+        }
         var query = {
             filter: {
 				publickey: options.publickey,
-				playerids: {"$all" : [options.playerid]}
+				playerids: options.playerid
             },
             limit: parseInt(options.maxreturn || "10"),
             cache: false,
         };
-
+		
         db.playtomic.playerchallenge_challenges.getAndCount(query, function(error, challenges, numchallenges){
             
             if (error) {
-                return callback("unable to load challenges (api.playerchallenges.list:65)", errorcodes.GeneralError);
-            }
+                return callback("unable to load challenges (api.playerchallenges.list)", errorcodes.GeneralError);
+            }			
 			
-            return callback(null, errorcodes.NoError, numchallenges, clean(challenges, false));
+			// list all this players challenges as seen			
+			for(var i = 0; i < challenges.length; i++) {
+				if(challenges[i].hide == true)
+					continue;
+				challenges[i].playerinfo[options.playerid].hasseenchallenge = true;
+				db.playtomic.playerchallenge_challenges.update({filter: {_id: challenges[i]._id}, doc: challenges[i], safe: true, upsert: false}, function(error2) {
+
+				});
+				
+			}			
+			
+			return callback(null, errorcodes.NoError, numchallenges, clean(challenges, true));
         });
     },
 
     load: function(options, callback) {
 
         if(!options.challengeid) {
-            return callback("unable to load challenges (api.playerchallenges.load:86)", errorcodes.GeneralError);
+            return callback("unable to load challenges (api.playerchallenges.load)", errorcodes.ChallengeNotFound);
         }
 		
         var query = {
@@ -54,17 +68,18 @@ var playerchallenges = module.exports = {
         db.playtomic.playerchallenge_challenges.get(query, function(error, challenges){
 		
             if (error) {
-                return callback("error loading challenge (api.playerchallenges.load:96)", errorcodes.GeneralError);
+                return callback("error loading challenge (api.playerchallenges.load)", errorcodes.GeneralError);
             }
 
             if (!challenges || challenges.length == 0) {
-                return callback("unable to find challenge (api.playerchallenges.load:102)", errorcodes.GeneralError);
+                return callback("unable to find challenge (api.playerchallenges.load)", errorcodes.ChallengeNotFound);
             }
 
             return callback(null, errorcodes.NoError, clean(challenges, true)[0]);
         });
     },
 
+	//Create a new challenge only
     save: function(options, callback) {
 
         // small cleanup
@@ -89,16 +104,16 @@ var playerchallenges = module.exports = {
         db.playtomic.playerchallenge_challenges.get({ filter: { publickey: challenge.publickey, challengeid: challenge.challengeid }, limit: 1}, function(error, challenges) {
 
             if (error) {
-                return callback("unable to save challenge (api.playerchallenges.save:188)", errorcodes.GeneralError);
+                return callback("unable to save challenge (api.playerchallenges.save)", errorcodes.GeneralError);
             }
 
             if(challenges && challenges.length > 0) {
-                return callback("already saved this challenge", errorcodes.LevelAlreadyExists, clean(challenges, options.data === true)[0]);
+                return callback("already saved this challenge", errorcodes.GeneralError, clean(challenges, options.data === true)[0]);
             }
 
             db.playtomic.playerchallenge_challenges.insert({doc: challenge, safe: true}, function(error, challenge) {
                 if (error) {
-                    return callback("unable to save challenge (api.playerchallenges.save:188)", errorcodes.GeneralError);
+                    return callback("unable to save challenge (api.playerchallenges.save)", errorcodes.GeneralError);
                 }
 
                 return callback(null, errorcodes.NoError, clean([challenge], false)[0]);
@@ -128,7 +143,7 @@ var playerchallenges = module.exports = {
         db.playtomic.playerchallenge_challenges.get({ filter: { publickey: challenge.publickey, _id: new objectid(options.challengeid) }, limit: 2}, function(error, challenges) {
 
             if (error) {
-                return callback("unable to update challenge (api.playerchallenges.update:152)", errorcodes.ChallengeNotFound);
+                return callback("unable to update challenge (api.playerchallenges.update)", errorcodes.GeneralError);
             }
 			
             if(challenges && challenges.length > 1 || challenges.length == 0) {
@@ -137,7 +152,7 @@ var playerchallenges = module.exports = {
 			
             db.playtomic.playerchallenge_challenges.update({filter: { publickey: challenge.publickey, _id: new objectid(options.challengeid) },doc: {"$set": challenge}, safe: true}, function(error, challenge) {
                 if (error) {
-                    return callback("unable to update challenge (api.playerchallenges.update:161)", errorcodes.ChallengeNotFound);
+                    return callback("unable to update challenge (api.playerchallenges.update)", errorcodes.GeneralError);
                 }
                 return callback(null, errorcodes.NoError, clean([challenge], false)[0]);
             });
@@ -155,12 +170,25 @@ var playerchallenges = module.exports = {
 		};
 		
 		db.playtomic.playerchallenge_challenges.get(query, function(error,challenge) {
-			if(error) {
+			if(error){
+				return callback("challenge not found", errorcodes.GeneralError);
+			}
+			if(challenge.length == 0) {
 				return callback("challenge not found", errorcodes.ChallengeNotFound);
 			}
-			if(!challenge[0].events[options.eventid].replays[options.retrieveid]) {
-				//handle no replay here
+			if(!challenge[0].events){
+				return callback("challenge not found", errorcodes.EventNotFound);
 			}
+			if(!challenge[0].events[options.eventid]){
+				return callback("challenge not found", errorcodes.EventNotFound);
+			}
+			if(!challenge[0].events[options.eventid].replays){
+				return callback("challenge not found", errorcodes.ReplayNotFound);
+			}
+			if(!challenge[0].events[options.eventid].replays[options.retrieveid]) {
+				return callback("challenge not found", errorcodes.ReplayNotFound)
+			}
+			
 			var response = {};
 			response["replay"] = challenge[0].events[options.eventid].replays[options.retrieveid];
 			
@@ -184,20 +212,51 @@ var playerchallenges = module.exports = {
 			var challenge = results[0];
 			delete challenge._id;
 			
-			if(challenge.playerids[challenge.currentturn] != options.playerid) {
+			if(challenge.playerinfo[options.playerid].myturn == false){
+				if(challenge.idle == false) {
 				return callback("incorrect player turn",errorcodes.WrongPlayersTurn);
+				}
 			}
 			
+			// if not event data present make the structure for one
 			if(!challenge.events) challenge.events = {};
 			if(!challenge.events[options.eventid]){
 				challenge.events[options.eventid] = {}
+			}
+				if(!challenge.events[options.eventid].results){
 				challenge.events[options.eventid].results = {};
+			}
+			if(!challenge.events[options.eventid].replays){
 				challenge.events[options.eventid].replays = {};
 			}
+			challenge.events[options.eventid].levelname = options.levelname;
+			challenge.events[options.eventid].sceneindex = options.sceneindex;
 			challenge.events[options.eventid].results[options.playerid] = options.result;
 			challenge.events[options.eventid].replays[options.playerid] = options.replay;
-			challenge.currentturn = (challenge.currentturn + 1) % challenge.playerids.length;
-			challenge.currentevent = options.eventid;
+			// set other players to not seen latest data
+			for(var x in challenge.playerinfo) {
+				if(x == options.playerid)
+					continue;
+				challenge.playerinfo[x].hasseenchallenge = false;
+			}
+			// end this players turn
+			challenge.playerinfo[options.playerid].myturn = false;
+			challenge.idle = false;
+			if(options.endturn == true){
+				//idle challenges any participating player to make a move/initiate new event
+				challenge.idle = true;
+			}
+			else {
+				//start next players turn
+				challenge.currentturn = challenge.playerids.indexOf(options.playerid);
+				challenge.currentturn = (challenge.currentturn + 1) % challenge.playerids.length;
+				var nextid = challenge.playerids[challenge.currentturn];
+				challenge.playerinfo[nextid].myturn = true;
+				challenge.idle = false;
+				challenge.eventid = options.eventid;
+			}
+			
+			challenge.hide = false;
 			
 			db.playtomic.playerchallenge_challenges.update(
 				{filter: {publickey: challenge.publickey, _id: new objectid(options.challengeid)}, 
@@ -231,7 +290,7 @@ function clean(challenges, replay) {
                 challenge.fields[x] = utils.unescape(challenge.fields[x]);
             }
         }
-		if(replay === false) {
+			if(replay === false) {
 			for(var x in challenge.events) {
 				delete challenge.events[x].replays;
 			}

@@ -47,6 +47,11 @@ module.exports = {
 		WrongPlayersTurn: 701,
 		ChallengeNotFound: 702,
 		
+		PlayerProfilesDisabled: 800,
+		UnableToFindProfile: 801,
+		NoIDSupplied: 802,
+		IDAlreadyExists: 803,		
+		
 		MatchMakingDisabled: 900,
 		NoChallengeFound: 901
 	},
@@ -85,7 +90,7 @@ module.exports = {
 		"502": "Missing player name",
 		"503": "Missing achievement",
 		"504": "Invalid achievement for achievement key",
-		"505": "Player already had the achievement.  You can overwrite old achievements with overwrite=true or save each time the player is awarded with allowduplicates=true",
+		"505": "Player already had the achievement. You can overwrite old achievements with overwrite=true or save each time the player is awarded with allowduplicates=true",
 		"506": "Player already had the achievement and it was overwritten or a duplicate was saved successfully",
 		
 		// Newsletter errors
@@ -97,6 +102,12 @@ module.exports = {
 		"700": "PlayerChallenges API has been disabled for this game",
 		"701": "It's the other players turn",
 		"702": "Challenge not found",
+		
+		//PlayerProfile Errors
+		"800": "PlayerProfiles API has been disabled for this game",
+		"801": "Unable to Find Profile",
+		"802": "No Player ID supplied",
+		"803": "ID already exists",
 		
 		//Matchmaking errors
 		"900": "Matchmaking disabled on server",

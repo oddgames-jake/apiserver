@@ -13,6 +13,11 @@ var playerprofile = module.exports = {
 
 
 	ping: function(options, callback){
+	
+        if(!options.playerid) {
+            return callback("unable to ping player profile (api.playerprofile.ping)", errorcodes.NoIDSupplied);
+        }
+		
 		var query = {
 			filter: {
 				publickey: options.publickey,
@@ -25,7 +30,13 @@ var playerprofile = module.exports = {
 		
 		// could split this ip/timezone business off into another larger ping/update that runs once 
 		// per sesion or when required
-		var ip = "138.91.92.90";
+		var ip = options.ip;
+		
+		// for testing purposes if local host change to an ip in your countries range
+		if(ip == "127.0.0.1") {
+			ip = "8.8.8.8";//change this to an ip in your countries range
+		}
+		
 		var geo = geoip.lookup(ip);
 		
 		// gives the approximate timezone of the player
@@ -33,20 +44,25 @@ var playerprofile = module.exports = {
 		
 		var data = {timezone: iptimezone,
 					lastping: datetime.now};
-		console.log(datetime.now);
+					
 		db.playtomic.playerprofiles.update(
 		{filter: {publickey: options.publickey, playerid: options.playerid},
 		doc: {"$set": data},safe: true}, function(error,profile) {
+		
+			if(error){
+				return callback(null,errorcodes.GeneralError);
+			}
+				//possibly add in a matchmaking bit here
+			return callback(null,errorcodes.NoError);
 		});
 		
-		//possibly add in a matchmaking bit here
-		return callback(null,errorcodes.NoError);
+
 	},
 		
     load: function(options, callback) {
 
         if(!options.playerid) {
-            return callback("unable to load player profile (api.playerprofile.load:55)", errorcodes.GeneralError);
+            return callback("unable to load player profile (api.playerprofile.load)", errorcodes.NoIDSupplied);
         }
 
         var query = {
@@ -58,19 +74,17 @@ var playerprofile = module.exports = {
 
             limit: 1,
             skip: 0,
-            sort: {},
-            cache: true,
-            cachetime: 120
+            sort: {}
         };
-
-        db.playtomic.playerpprofiles.get(query, function(error, challenges){
+		
+        db.playtomic.playerprofiles.get(query, function(error, challenges){
             
             if (error) {
-                return callback("error loading profile (api.playerprofile.load:37)", errorcodes.GeneralError);
+                return callback("error loading profile (api.playerprofile.load)", errorcodes.GeneralError);
             }
 
             if (!challenges || challenges.length == 0) {
-                return callback("unable to find challenge (api.playerprofile.load:41)", errorcodes.GeneralError);
+                return callback("unable to find challenge (api.playerprofile.load)", errorcodes.UnableToFindProfile);
             }
 
             return callback(null, errorcodes.NoError, clean(challenges, true)[0]);
@@ -79,6 +93,9 @@ var playerprofile = module.exports = {
 
 	update: function(options, callback) {
 		
+		if(!options.playerid) {
+            return callback("unable to update player profile (api.playerprofile.update)", errorcodes.NoIDSupplied);
+        }
         // small cleanup
         var playerprofile = {};
 
@@ -91,11 +108,11 @@ var playerprofile = module.exports = {
         db.playtomic.playerpprofiles.get({ filter: { publickey: playerprofile.publickey, profileid: options.profileid }, limit: 2}, function(error, profiles) {
 
             if (error) {
-                return callback("unable to update profile (api.playerprofile.update:71)", errorcodes.GeneralError);
+                return callback("unable to update profile (api.playerprofile.update)", errorcodes.GeneralError);
             }
 			
             if(profiles && profiles.length > 1 || profiles.length == 0) {
-                return callback("profile not found, cannot update", errorcodes.GeneralError, clean(profiles)[0]);
+                return callback("profile not found, cannot update", errorcodes.UnableToFindProfile, clean(profiles)[0]);
             }
 			
 			// load up player profile
@@ -113,7 +130,7 @@ var playerprofile = module.exports = {
 			
             db.playtomic.playerpprofiles.update({filter: { publickey: playerprofile.publickey, profileid: playerprofile.profileid },doc: {"$set" : playerprofile}, safe: true}, function(error, playerprofile) {
                 if (error) {
-                    return callback("unable to update player profile (api.playerprofile.update:87)", errorcodes.GeneralError);
+                    return callback("unable to update player profile (api.playerprofile.update)", errorcodes.GeneralError);
                 }
                 return callback(null, errorcodes.NoError, clean([playerprofile])[0]);
             });
@@ -121,13 +138,19 @@ var playerprofile = module.exports = {
     },
 	
 	create: function(options,callback) {
+	
 	if(!options.playerid){
-		return callback("unable to create profile, no ID supplied (api.playerprofile.update:93)", 1001);
+		return callback("unable to create profile, no ID supplied (api.playerprofile.create)", errorcodes.NoIDSupplied);
 	}
 
+	// check if id is already in use
 	db.playtomic.playerprofiles.get({ filter: { publickey: options.publickey, playerid: options.playerid }, limit: 1}, function(error, profiles) {
-		if(profiles.length != 0 || error){
-			return callback("unable to create profile, ID already exists", 1002);
+		
+		if(error) {
+			return callback("unable to create profile (api.playerprofile.create)", errorcodes.GeneralError);
+		}
+		if(profiles.length != 0){
+			return callback("unable to create profile, ID already exists", errorcodes.IDAlreadyExists);
 		}
 	
 	
@@ -136,6 +159,7 @@ var playerprofile = module.exports = {
         // to your game
         var exclude = ["section", "action", "ip", "date", "url", "page", "perpage", "filters", "debug"];
 		var playerprofile = {};
+		
 		for(var x in options) {
 			
 				if(exclude.indexOf(x) > -1) {
@@ -145,11 +169,14 @@ var playerprofile = module.exports = {
             playerprofile[x] = options[x];
 		}
 		
+		playerprofile["challengestoday"] = 0;
+		playerprofile["challengedtime"] = 0;
+		
 		db.playtomic.playerprofiles.insert({doc: playerprofile, safe: true}, function(error, playerprofile) {
 			if (error) {
-                    return callback("unable to save profile (api.playerprofiles.save:118)", 1003);
+                    return callback("unable to create profile (api.playerprofiles.creare)", errorcodes.GeneralError);
                 }
-			//console.log("succesfully inserted player into db");
+				
             return callback(null, errorcodes.NoError, clean([playerprofile])[0]);
 		});
 	});
@@ -158,7 +185,7 @@ var playerprofile = module.exports = {
 
 function clean(profiles) {
 
-    for(var i=0; i<profiles.length; i++) {
+    for(var i = 0; i < profiles.length; i++) {
 
         var profile = profiles[i];
 

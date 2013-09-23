@@ -47,6 +47,7 @@ var matchmaker = module.exports = {
 				 		if(Math.abs(payload.responsetime - val.responsetime) <= responsetimedeltas[cntr] ) {
 							if(Math.abs(payload.elo - val.elo) <= elodeltas[cntr]) {
 								//add to list
+
 								returns.push(key);
 								if(returns.length > 99) return false;//if enough exit the forEach
 							}
@@ -73,29 +74,54 @@ var matchmaker = module.exports = {
 		loops[0]++;
 		loops[1] += cntr;
 		
-		var selected = 0;
+		var selected = -1;
 		var minchallenge = 999;
+		var exists = false;
 		for(var i = 0; i < returns.length; i++){
+		
+			exists = false;
+			
+			for(var x =0; x < payload.blockedids.length; x++) {
+				if(returns[i] == payload.playerid) {
+					exists = true;
+					continue;
+				}
+				if(returns[i] == payload.blockedids[x]){
+					exists = true;
+				}
+			}
+			if(exists == true) continue;
 			if(dirty.get(returns[i]).challengestoday < minchallenge) {
 				selected = i;
 				minchallenge = dirty.get(returns[i]).challengestoday;
 			}
 		}
-		var selectedid = returns[selected];
-		var otherdata = dirty.get(selectedid);
 		
-		dirty.rm(selectedid);
+		var otherdata = null;
+		if(selected != -1){
+			var selectedid = returns[selected];
+			otherdata = dirty.get(selectedid);
+			dirty.rm(selectedid);
+		}
+		
 		if(otherdata == null) {
 			return callback("unable to find challenge", errorcodes.NoChallengeFound);
 		}
 		
+		// make the playerchallenge entry
 		var challenge = {};
 		challenge.publickey = payload.publickey;
 		challenge.playerids = [payload.playerid, selectedid];
-		challenge.playernames = [payload.playername, otherdata.playername];
-		challenge.currentturn = [0];	//uses the index of playerids
+		challenge.hide = true;
+		challenge.playerinfo = { };
+		challenge.playerinfo[payload.playerid] = {name: payload.playername, myturn: true, hasseenchallenge: true};
+		challenge.playerinfo[selectedid] = {name: otherdata.playername, myturn: false, hasseenchallenge: false};
+		challenge.currentturn = 0;
+		challenge.idle = true;
 		challenge.date = datetime.now;
 		challenge.startdate = challenge.date;
+		
+		
 		db.playtomic.playerprofiles.update({filter: {playerid: selectedid}, 
 			doc: {"$set" : {challengedtime: datetime.now}, "$inc" : {challengestoday: 1}}, 
 			safe: true}, function (error, challenge) {
@@ -177,7 +203,19 @@ function clean(challenges, data) {
 			lastping: {"$gte": (datetime.now - pingtime)},
 			challengedtime: {"$lte": (datetime.now - challengedelay)}
 			},
+			fields: {
+			_id: false,
+			playerid: true,
+			lastping: true,
+			elo: true,
+			playtime: true,
+			responsetime: true,
+			playername: true,
+			challengedtime: true,
+			challengestoday: true			
+			},
 			sort: {lastping: -1} ,
+			limit: 10000
 		};
 		
 		//account for timezone wraparound
@@ -190,7 +228,7 @@ function clean(challenges, data) {
 		
 		db.playtomic.playerprofiles.get(query, function(error,profiles) {
 			if(!error) {
-			//console.log("search returned",profiles.length,"units");
+			
 			startingup = false;
 				// reset dirty db here
 				dirty = new require('dirty')();
@@ -209,7 +247,6 @@ function clean(challenges, data) {
 				}
 			}
 			else{
-				console.log(error);
 			}
 		});
 		return setTimeout(refreshonline, updateFreq);
@@ -256,24 +293,64 @@ function clean(challenges, data) {
 	function updatetimezonedata(){
 		var d = new Date();
 		var hour = d.getUTCHours();
-		mintimeoffset = (starthour - 12) + (12 - hour);
+		mintimeoffset = (starthour - hour);
 		
 		if(mintimeoffset < -12) {
-			mintimeoffset =(14+(mintimeoffset + 12))
+			mintimeoffset = mintimeoffset + 24;
 		}
-		if(mintimeoffset > 14) {
-			mintimeoffset = (-12 + (mintimeoffset - 14));
+		if(mintimeoffset > 12) {
+			mintimeoffset =  mintimeoffset - 24;	
 		}	
 		
-		maxtimeoffset = (endhour - 12) + (12 - hour);			
+		maxtimeoffset = (endhour - hour);			
 		
 		if(maxtimeoffset < -12) {
-			maxtimeoffset =(14+(maxtimeoffset + 12))
+			maxtimeoffset = maxtimeoffset + 24;
 		}
-		if(maxtimeoffset > 14) {
-			maxtimeoffset = (-12 + (maxtimeoffset - 14));
+		if(maxtimeoffset > 12) {
+			maxtimeoffset = maxtimeoffset - 24;
 		}
 	}
 	
 	refreshonline();
+	
+	// runs every hour at midnight localtime
+	function DailyUpdater() {
+		// make stats log here
+	}
+	
+	function HourlyUpdater() {
+		// check for daily updater
+		if(new Date().getHours() == 0)
+			DailyUpdater();
+			
+			
+		// update daily challenge count for each player
+		var currtimezone = new Date().getUTCHours();
+		if(currtimezone > 12) currtimezone -= 24;
+		var timearray = new Array();
+		timearray.push(currtimezone);
+		if(currtimezone == 12)
+			timearray.push(-12);
+		
+		var command = {
+	        filter: {
+				timezone: {"$in": timearray}
+            },
+            doc: {
+                $set: {challengestoday: 20}
+            },
+            upsert: false,
+            safe: true,
+			multi: true
+		};
+		
+		db.playtomic.playerprofiles.update(command,function(error) {	
+		toHour = (60 - new Date().getMinutes()) * 60000 + 1000;
+		setTimeout(HourlyUpdater,toHour);
+		});
+	}
+	
+	var toHour = (60 - new Date().getMinutes()) * 60000 + 1000;
+	setTimeout(HourlyUpdater,5000);
 }) ();
