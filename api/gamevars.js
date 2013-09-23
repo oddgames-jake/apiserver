@@ -35,9 +35,6 @@ var gamevars = module.exports = {
         {
 	    
             if(error) {
-                if(callback) {
-                    callback(error);
-                }
 
                 console.log("GAMEVARS failed to retrieve results from mongodb: " + error);
                 return setTimeout(refresh, 1000);

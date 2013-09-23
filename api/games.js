@@ -48,9 +48,6 @@ if(process.env.testing) {
         db.playtomic.games.get({}, function(error, credentials)
         {
             if(error) {
-                if(callback) {
-                    callback(error);
-                }
 
                 console.log("GAMES failed to retrieve results from mongodb: " + error);
                 return setTimeout(refresh, 1000);
