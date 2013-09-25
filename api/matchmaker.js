@@ -31,9 +31,8 @@ var matchmaker = module.exports = {
 	//challenges a random player of similar quality who has been online recently
 	find: function(payload,callback) {
 	
-		if(startingup == true ||!payload.playerid || !payload.elo || lastpingoffsets == undefined){// || !payload.responsetime || !payload.playtime) {
-			return callback("unable to find match, insufficient data (api.matchmaker.find:16)",errorcodes.GeneralError);
-		}
+		if(startingup == true ||!payload.playerid || !payload.elo || lastpingoffsets == undefined)// || !payload.responsetime || !payload.playtime) {
+			return callback("unable to find match, insufficient data (api.matchmaker.find)",errorcodes.GeneralError);
 		
 		var cntr = 0;
 		// the array of selected possible matches
@@ -42,11 +41,11 @@ var matchmaker = module.exports = {
 		//make a list of potential matches
 		while(true) {
 			dirty.forEach(function(key,val) {
+            // Disable || true in production
 				if((datetime.now - val.lastping) <= lastpingoffsets[cntr] || true) {
 					if(Math.abs(payload.playtime - val.playtime) <= playtimedeltas[cntr]) {
 				 		if(Math.abs(payload.responsetime - val.responsetime) <= responsetimedeltas[cntr] ) {
 							if(Math.abs(payload.elo - val.elo) <= elodeltas[cntr]) {
-								//add to list
 
 								returns.push(key);
 								if(returns.length > 99) return false;//if enough exit the forEach
@@ -55,14 +54,15 @@ var matchmaker = module.exports = {
 					}
 				}
 				else {
-					//sorted by pingtime descending so one fails the rest will
+					//sorted by pingtime descending so when an item fails the first check the rest will as well
 					return false;
 				}
 			});
 			cntr++;
 			// if nothing found and by last iteration return first entrant in dirty db(most recent pinger)
-			if(cntr > 9 && returns.length == 0){
-				dirty.forEach( function(key,val){
+			if(cntr > 9 && returns.length == 0) {
+            
+				dirty.forEach( function(key,val) {
 					returns.push(key);
 					return false;
 				});
@@ -77,20 +77,26 @@ var matchmaker = module.exports = {
 		var selected = -1;
 		var minchallenge = 999;
 		var exists = false;
-		for(var i = 0; i < returns.length; i++){
+		for(var i = 0; i < returns.length; i++) {
 		
 			exists = false;
-			
+            
+			if(returns[i] == payload.playerid) {
+				exists = true;
+				continue;
+            }
+            
 			for(var x =0; x < payload.blockedids.length; x++) {
-				if(returns[i] == payload.playerid) {
-					exists = true;
-					continue;
-				}
+
 				if(returns[i] == payload.blockedids[x]){
 					exists = true;
+                    break;
 				}
 			}
-			if(exists == true) continue;
+            
+			if(exists == true) 
+                continue;
+                
 			if(dirty.get(returns[i]).challengestoday < minchallenge) {
 				selected = i;
 				minchallenge = dirty.get(returns[i]).challengestoday;
@@ -98,7 +104,7 @@ var matchmaker = module.exports = {
 		}
 		
 		var otherdata = null;
-		if(selected != -1){
+		if(selected != -1) {
 			var selectedid = returns[selected];
 			otherdata = dirty.get(selectedid);
 			dirty.rm(selectedid);
@@ -130,9 +136,9 @@ var matchmaker = module.exports = {
 			
 			
 		db.playtomic.playerchallenge_challenges.insert({doc: challenge, safe: true}, function (error,challenge) {
-			if (error) {
-					return callback("unable to save challenge", errorcodes.GeneralError);
-				}
+			if (error) 
+				return callback("unable to save challenge", errorcodes.GeneralError);
+                
 			return callback(null, errorcodes.NoError, clean([challenge], true)[0]);
 		});
 	},
@@ -146,20 +152,20 @@ var matchmaker = module.exports = {
 
 function clean(challenges, data) {
 
-    for(var i=0; i<challenges.length; i++) {
+    for(var i = 0; i < challenges.length; i++) {
 
         var challenge = challenges[i];
 
         for(var x in challenge) {
-            if(typeof(challenge[x]) == "String") {
+            if(typeof(challenge[x]) == "String") 
+            
                 challenge[x] = utils.unescape(challenge[x]);
-            }
         }
 
         for(var x in challenge.fields) {
-            if(typeof(challenge.fields[x]) == "String") {
+        
+            if(typeof(challenge.fields[x]) == "String")
                 challenge.fields[x] = utils.unescape(challenge.fields[x]);
-            }
         }
 
 		challenge.rdate = utils.friendlyDate(utils.fromTimestamp(challenge.date));
@@ -167,9 +173,8 @@ function clean(challenges, data) {
 		challenge.challengeid = challenge._id;
 		delete challenge._id;
 
-        if(data !== true) {
+        if(data !== true)
             delete challenge.data;
-        }
     }
 
     return challenges;
@@ -177,13 +182,16 @@ function clean(challenges, data) {
 
 (function() {
 
-	//defaults until gamevars is loaded
-	var updateFreq = 10000;//ms
 	var testpublickey = "testpublickey";
-	var pingtime = 3600*24*14;//seconds
-	var challengedelay = 600;//seconds
-	var starthour = 9;
-	var endhour = 21;
+    
+	//setting vars, these values only used until gamevars is loaded
+	var updateFreq = 10;                    // How often to refresh lists/settings (seconds)
+	var pingtime = 3600 * 24 * 14;          // max time since last ping (seconds)
+	var challengedelay = 18000;             //minimum delay between being challenged
+	var starthour = 9;                      //earliest hour (in players local time) to add to potential matches list
+	var endhour = 21;                       //latest hour(in players local time) to add to potential matches list
+    
+    // calc vars
 	var mintimeoffset = 0;
 	var maxtimeoffset = 0;
 	
@@ -218,8 +226,8 @@ function clean(challenges, data) {
 			limit: 10000
 		};
 		
-		//account for timezone wraparound
-		if(mintimeoffset > maxtimeoffset) {
+		// //account for timezone wraparound
+		if(mintimeoffset >= maxtimeoffset) {
 			query.filter["$or"] = [{timezone: {"$gte": mintimeoffset}},{timezone: {"$lte": maxtimeoffset}}]; 
 		}
 		else {
@@ -229,27 +237,25 @@ function clean(challenges, data) {
 		db.playtomic.playerprofiles.get(query, function(error,profiles) {
 			if(!error) {
 			
-			startingup = false;
+                startingup = false;
 				// reset dirty db here
 				dirty = new require('dirty')();
 				// put all found online players  in the dirty db
-				for(var i = 0; i < profiles.length; i++)
-				{
+				for(var i = 0; i < profiles.length; i++) {
 					dirty.set(profiles[i].playerid,{
-					lastping: profiles[i].lastping,
-					elo: profiles[i].elo, 
-					playtime: profiles[i].playtime, 
-					responsetime: profiles[i].responsetime,
-					playername: profiles[i].playername,
-					challengedtime: profiles[i].challengedtime,
-					challengestoday: profiles[i].challengestoday
+                        lastping: profiles[i].lastping,
+                        elo: profiles[i].elo, 
+                        playtime: profiles[i].playtime, 
+                        responsetime: profiles[i].responsetime,
+                        playername: profiles[i].playername,
+                        challengedtime: profiles[i].challengedtime,
+                        challengestoday: profiles[i].challengestoday
 					});
 				}
 			}
-			else{
-			}
 		});
-		return setTimeout(refreshonline, updateFreq);
+        
+		return setTimeout(refreshonline, updateFreq * 1000);
 	}
 	
 	function getData()
@@ -258,7 +264,8 @@ function clean(challenges, data) {
 		
 		var data = gamevars.load("matchmakerdata");
 		
-		var testnull = data["lastpingoffsets"];		
+		var testnull = data["lastpingoffsets"];
+        
 		if(testnull != undefined) {
 			
 			lastpingoffsets = data["lastpingoffsets"];
@@ -291,30 +298,30 @@ function clean(challenges, data) {
 	}
 	
 	function updatetimezonedata(){
+    
 		var d = new Date();
 		var hour = d.getUTCHours();
-		mintimeoffset = (starthour - hour);
-		
-		if(mintimeoffset < -12) {
+        
+		mintimeoffset = (starthour - hour);		
+        
+		if(mintimeoffset < -12) 
 			mintimeoffset = mintimeoffset + 24;
-		}
-		if(mintimeoffset > 12) {
+            
+		if(mintimeoffset > 12) 
 			mintimeoffset =  mintimeoffset - 24;	
-		}	
 		
-		maxtimeoffset = (endhour - hour);			
-		
-		if(maxtimeoffset < -12) {
+		maxtimeoffset = (endhour - hour);
+		if(maxtimeoffset < -12)
 			maxtimeoffset = maxtimeoffset + 24;
-		}
-		if(maxtimeoffset > 12) {
+
+		if(maxtimeoffset > 12) 
 			maxtimeoffset = maxtimeoffset - 24;
-		}
+
 	}
 	
 	refreshonline();
 	
-	// runs every hour at midnight localtime
+	// runs every hour at midnight server localtime
 	function DailyUpdater() {
 		// make stats log here
 	}

@@ -5,7 +5,7 @@ var api = require(__dirname + "/../api"),
 
 module.exports = function(payload, request, response, testcallback) {
 
-    api.playerchallenges.save(payload, function(error, errorcode, challenge){
+    api.playerchallenges.create(payload, function(error, errorcode, challenge){
 
         // the exception handling differs here because a level can
         // fail to save because it's already saved

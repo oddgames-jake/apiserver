@@ -46,6 +46,7 @@ module.exports = {
 		ChallengesDisabled: 700,
 		WrongPlayersTurn: 701,
 		ChallengeNotFound: 702,
+        ChallengeMatchAlreadyExists: 703,
 		
 		PlayerProfilesDisabled: 800,
 		UnableToFindProfile: 801,
@@ -102,6 +103,7 @@ module.exports = {
 		"700": "PlayerChallenges API has been disabled for this game",
 		"701": "It's the other players turn",
 		"702": "Challenge not found",
+        "703": "Challenge already exists.",
 		
 		//PlayerProfile Errors
 		"800": "PlayerProfiles API has been disabled for this game",
