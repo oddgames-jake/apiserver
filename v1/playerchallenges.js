@@ -1,7 +1,7 @@
 module.exports = {
 	sectionCode: 700,
     list: require(__dirname + "/playerchallenges.list.js"),
-    save: require(__dirname + "/playerchallenges.save.js"),
+    create: require(__dirname + "/playerchallenges.create.js"),
     load: require(__dirname + "/playerchallenges.load.js"),
 	update: require(__dirname + "/playerchallenges.update.js"),
 	getreplay: require(__dirname + "/playerchallenges.getreplay.js"),

@@ -43,7 +43,7 @@ var playerchallenges = module.exports = {
 				});				
 			}
 			
-			return callback(null, errorcodes.NoError, numchallenges, clean(challenges, true));
+			return callback(null, errorcodes.NoError, numchallenges, clean(challenges, false));
         });
     },
 

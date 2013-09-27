@@ -13,11 +13,11 @@ var playerprofile = module.exports = {
 
 
 	ping: function(options, callback){
-	
+        return callback(null,errorcodes.NoError);
         if(!options.playerid) {
             return callback("unable to ping player profile (api.playerprofile.ping)", errorcodes.NoIDSupplied);
         }
-		
+        
 		var query = {
 			filter: {
 				publickey: options.publickey,
@@ -40,23 +40,19 @@ var playerprofile = module.exports = {
 		var geo = geoip.lookup(ip);
 		
 		// gives the approximate timezone of the player
-		var iptimezone = Math.round(geo.ll[1]/15);
+		var iptimezone = Math.round(geo.ll[1] / 15);
 		
 		var data = {timezone: iptimezone,
 					lastping: datetime.now};
 					
 		db.playtomic.playerprofiles.update(
-		{filter: {publickey: options.publickey, playerid: options.playerid},
-		doc: {"$set": data},safe: true}, function(error,profile) {
-		
-			if(error){
-				return callback(null,errorcodes.GeneralError);
-			}
-				//possibly add in a matchmaking bit here
-			return callback(null,errorcodes.NoError);
+        {filter: {publickey: options.publickey, playerid: options.playerid},
+        doc: {"$set": data},safe: true}, function(error,profile) {
+         //this space intentially left blank
 		});
 		
-
+		//possibly add in a matchmaking bit here
+		return callback(null,errorcodes.NoError);
 	},
 		
     load: function(options, callback) {
@@ -119,13 +115,12 @@ var playerprofile = module.exports = {
 			playerprofile = profiles[0];
 			
 			// save over any data received
-			for(var x in options) {
-			
+			for(var x in options) {			
 				if(exclude.indexOf(x) > -1) {
 					continue;
 				}
 
-            playerprofile[x] = options[x];
+                playerprofile[x] = options[x];
 			}
 			
             db.playtomic.playerpprofiles.update({filter: { publickey: playerprofile.publickey, profileid: playerprofile.profileid },doc: {"$set" : playerprofile}, safe: true}, function(error, playerprofile) {
@@ -139,47 +134,47 @@ var playerprofile = module.exports = {
 	
 	create: function(options,callback) {
 	
-	if(!options.playerid){
-		return callback("unable to create profile, no ID supplied (api.playerprofile.create)", errorcodes.NoIDSupplied);
-	}
+        if(!options.playerid){
+            return callback("unable to create profile, no ID supplied (api.playerprofile.create)", errorcodes.NoIDSupplied);
+        }
 
-	// check if id is already in use
-	db.playtomic.playerprofiles.get({ filter: { publickey: options.publickey, playerid: options.playerid }, limit: 1}, function(error, profiles) {
+        // check if id is already in use
+        db.playtomic.playerprofiles.get({ filter: { publickey: options.publickey, playerid: options.playerid }, limit: 1}, function(error, profiles) {
 		
-		if(error) {
-			return callback("unable to create profile (api.playerprofile.create)", errorcodes.GeneralError);
-		}
-		if(profiles.length != 0){
-			return callback("unable to create profile, ID already exists", errorcodes.IDAlreadyExists);
-		}
+            if(error) {
+                return callback("unable to create profile (api.playerprofile.create)", errorcodes.GeneralError);
+            }
+            if(profiles.length != 0){
+                return callback("unable to create profile, ID already exists", errorcodes.IDAlreadyExists);
+            }
 	
 	
-		// fields that just aren't relevant, by doing it this way it's easier to extend because you can
-        // just add more fields directly in your game and they will end up in your scores and returned
-        // to your game
-        var exclude = ["section", "action", "ip", "date", "url", "page", "perpage", "filters", "debug"];
-		var playerprofile = {};
+            // fields that just aren't relevant, by doing it this way it's easier to extend because you can
+            // just add more fields directly in your game and they will end up in your scores and returned
+            // to your game
+            var exclude = ["section", "action", "ip", "date", "url", "page", "perpage", "filters", "debug"];
+            var playerprofile = {};
 		
-		for(var x in options) {
+            for(var x in options) {
 			
-				if(exclude.indexOf(x) > -1) {
-					continue;
-				}
+                if(exclude.indexOf(x) > -1) {
+                    continue;
+                }
 
-            playerprofile[x] = options[x];
-		}
+                playerprofile[x] = options[x];
+            }
 		
-		playerprofile["challengestoday"] = 0;
-		playerprofile["challengedtime"] = 0;
+            playerprofile["challengestoday"] = 0;
+            playerprofile["challengedtime"] = 0;
 		
-		db.playtomic.playerprofiles.insert({doc: playerprofile, safe: true}, function(error, playerprofile) {
-			if (error) {
+            db.playtomic.playerprofiles.insert({doc: playerprofile, safe: true}, function(error, playerprofile) {
+                if (error) {
                     return callback("unable to create profile (api.playerprofiles.creare)", errorcodes.GeneralError);
                 }
 				
-            return callback(null, errorcodes.NoError, clean([playerprofile])[0]);
-		});
-	});
+                return callback(null, errorcodes.NoError, clean([playerprofile])[0]);
+            });
+        });
 	}
 };
 
