@@ -345,7 +345,7 @@ function clean(challenges, data) {
 				timezone: {"$in": timearray}
             },
             doc: {
-                $set: {challengestoday: 20}
+                $set: {challengestoday: 0}
             },
             upsert: false,
             safe: true,
