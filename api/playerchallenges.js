@@ -21,7 +21,7 @@ var playerchallenges = module.exports = {
 				publickey: options.publickey,
 				playerids: options.playerid
             },
-            limit: parseInt(options.maxreturn || "10"),
+            limit: parseInt(options.maxreturn || "30"),
             cache: false,
         };
 		
@@ -29,16 +29,22 @@ var playerchallenges = module.exports = {
             
             if (error)
                 return callback("unable to load challenges (api.playerchallenges.list)", errorcodes.GeneralError);		
-			
+			var id;
 			// list all this players challenges as seen			
 			for(var i = 0; i < challenges.length; i++) {
             
 				if(challenges[i].hide == true)
 					continue;
-                    
-				challenges[i].playerinfo[options.playerid].hasseenchallenge = true;
                 
-				db.playtomic.playerchallenge_challenges.update({filter: {_id: challenges[i]._id}, doc: challenges[i], safe: true, upsert: false}, function(error2) {
+                // make a clone of the challenge, original goes to player, clone updates db
+                // if this isnt done problems arise from the array items being modified in the clean function
+                var challengeinsert = JSON.parse(JSON.stringify(challenges[i]));
+                
+                id = new String(challengeinsert._id);                
+                delete challengeinsert._id;
+                
+                challengeinsert["playerinfo"][options.playerid].hasseenchallenge = true;
+				db.playtomic.playerchallenge_challenges.update({filter: {_id: new objectid(id)}, doc: challengeinsert , safe: true, upsert: false}, function(error2) {
                     //this space intentially left blank
 				});				
 			}
@@ -165,6 +171,7 @@ var playerchallenges = module.exports = {
     },
 	
 	getreplay: function(options,callback) {
+    
 		//find and return relevant replay data here
 		var query = {
 			filter: {
@@ -201,6 +208,10 @@ var playerchallenges = module.exports = {
 	},
 	
 	postresult: function(options, callback) {
+    
+        if(!options.challengeid || !options.result || !options.replay)
+            return callback("challenge not found", errorcodes.ChallengeNotFound);
+            
 		var query = {
 			filter: {
 				publickey: options.publickey,
