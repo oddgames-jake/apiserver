@@ -44,12 +44,13 @@ var playerchallenges = module.exports = {
                 delete challengeinsert._id;
                 
                 challengeinsert["playerinfo"][options.playerid].hasseenchallenge = true;
+                challengeinsert.date = datetime.now;
 				db.playtomic.playerchallenge_challenges.update({filter: {_id: new objectid(id)}, doc: challengeinsert , safe: true, upsert: false}, function(error2) {
                     //this space intentially left blank
 				});				
 			}
 			
-			return callback(null, errorcodes.NoError, numchallenges, clean(challenges, false));
+			return callback(null, errorcodes.NoError, numchallenges, clean(challenges, options.full || false));
         });
     },
 
@@ -135,14 +136,14 @@ var playerchallenges = module.exports = {
     },
     
 	update: function(options, callback) {
-		
+    
         // small cleanup
         var challenge = {};
 
         // fields that just aren't relevant, by doing it this way it's easier to extend because you can
         // just add more fields directly in your game and they will end up in your scores and returned
         // to your game
-        var exclude = ["section", "action", "ip", "date", "url", "page", "perpage", "filters", "debug"];
+        var exclude = ["section", "action", "ip", "date", "url", "page", "perpage", "filters", "debug","challengeid"];
 
         for(var x in options) {
             if(exclude.indexOf(x) > -1) 
@@ -151,20 +152,22 @@ var playerchallenges = module.exports = {
             challenge[x] = options[x];
         }
 		
+        //update timestamp on challenge
         challenge.date = datetime.now;
+        
         // check for dupes/missing entry
         db.playtomic.playerchallenge_challenges.get({ filter: { publickey: challenge.publickey, _id: new objectid(options.challengeid) }, limit: 2}, function(error, challenges) {
 
-            if (error) 
+            if (error)
                 return callback("unable to update challenge (api.playerchallenges.update)", errorcodes.GeneralError);
-			
-            if(challenges && challenges.length > 1 || challenges.length == 0) 
+            
+            if (challenges && challenges.length > 1 || challenges.length == 0) 
                 return callback("challenge not found, cannot update", errorcodes.ChallengeNotFound, null);
 			
-            db.playtomic.playerchallenge_challenges.update({filter: { publickey: challenge.publickey, _id: new objectid(options.challengeid) },doc: {"$set": challenge}, safe: true}, function(error, challenge) {
-                if (error) 
+            db.playtomic.playerchallenge_challenges.update({filter: { publickey: challenge.publickey, _id: new objectid(options.challengeid) },doc: challenge, safe: true}, function(error2, challenge) {
+                if (error2)
                     return callback("unable to update challenge (api.playerchallenges.update)", errorcodes.GeneralError);
-                    
+                
                 return callback(null, errorcodes.NoError, clean([challenge], false)[0]);
             });
         });
@@ -195,10 +198,10 @@ var playerchallenges = module.exports = {
 				return callback("challenge not found", errorcodes.EventNotFound);
                 
 			if(!challenge[0].events[options.eventid].replays)
-				return callback("challenge not found", errorcodes.ReplayNotFound);
+				return callback("replay not found", errorcodes.ReplayNotFound);
                 
 			if(!challenge[0].events[options.eventid].replays[options.retrieveid])
-				return callback("challenge not found", errorcodes.ReplayNotFound);
+				return callback("replay not found", errorcodes.ReplayNotFound);
 			
 			var response = {};
 			response["replay"] = challenge[0].events[options.eventid].replays[options.retrieveid];
@@ -245,7 +248,7 @@ var playerchallenges = module.exports = {
 			challenge.events[options.eventid].sceneindex = options.sceneindex;
 			challenge.events[options.eventid].results[options.playerid] = options.result;
 			challenge.events[options.eventid].replays[options.playerid] = options.replay;
-            
+            challenge.events[options.eventid].date = datetime.now;
 			// set other players to not seen latest data
 			for(var x in challenge.playerinfo) {
 				if(x == options.playerid)
@@ -272,7 +275,7 @@ var playerchallenges = module.exports = {
 			}
 			
 			challenge.hide = false;
-			
+			challenge.date = datetime.now;
 			db.playtomic.playerchallenge_challenges.update(
 			{filter: {publickey: challenge.publickey, _id: new objectid(options.challengeid)}, 
 			doc: {"$set": challenge}, safe: true, upsert: false}, function(error, challenge) {

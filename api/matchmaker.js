@@ -19,13 +19,6 @@ var elodeltas = [34,68,102,136,170,204,238,272,306,340];
 var playtimedeltas = [1,2,3,4,5,6,7,8,9,10];
 var responsetimedeltas = [0,1,1,2,2,3,3,4,4,5];
 
-//performance tracking
-
-//how many times the loop reset and widened scope in search
-var loops = new Array();
-loops[0] = 0;
-loops[1] = 0;
-
 var matchmaker = module.exports = {
 	
 	//challenges a random player of similar quality who has been online recently
@@ -70,31 +63,28 @@ var matchmaker = module.exports = {
 			if(returns.length > 99 || cntr > 9)
 				break;
 		}
-		
-		loops[0]++;
-		loops[1] += cntr;
-		
+				
 		var selected = -1;
 		var minchallenge = 999;
-		var exists = false;
+		var notAllowable = false;
 		for(var i = 0; i < returns.length; i++) {
 		
-			exists = false;
+			notAllowable = false;
             
 			if(returns[i] == payload.playerid) {
-				exists = true;
+				notAllowable = true;
 				continue;
             }
             
 			for(var x =0; x < payload.blockedids.length; x++) {
 
 				if(returns[i] == payload.blockedids[x]){
-					exists = true;
+					notAllowable = true;
                     break;
 				}
 			}
             
-			if(exists == true) 
+			if(notAllowable == true) 
                 continue;
                 
 			if(dirty.get(returns[i]).challengestoday < minchallenge) {
@@ -125,15 +115,13 @@ var matchmaker = module.exports = {
 		challenge.currentturn = 0;
 		challenge.idle = true;
 		challenge.date = datetime.now;
-		challenge.startdate = challenge.date;
-		
+		challenge.startdate = challenge.date;		
 		
 		db.playtomic.playerprofiles.update({filter: {playerid: selectedid}, 
 			doc: {"$set" : {challengedtime: datetime.now}, "$inc" : {challengestoday: 1}}, 
 			safe: true}, function (error, challenge) {
 				// this space intentionally left blank
-			});
-			
+			});			
 			
 		db.playtomic.playerchallenge_challenges.insert({doc: challenge, safe: true}, function (error,challenge) {
 			if (error) 
@@ -169,7 +157,7 @@ function clean(challenges, data) {
         }
 
 		challenge.rdate = utils.friendlyDate(utils.fromTimestamp(challenge.date));
-        delete challenge.hash;
+        
 		challenge.challengeid = challenge._id;
 		delete challenge._id;
 
@@ -184,14 +172,15 @@ function clean(challenges, data) {
 
 	var testpublickey = "testpublickey";
     
-	//setting vars, these values only used until gamevars is loaded
+    // Setting Vars
+	// Note: Just placeholders, used until real ones are loaded from db
 	var updateFreq = 10;                    // How often to refresh lists/settings (seconds)
 	var pingtime = 3600 * 24 * 14;          // max time since last ping (seconds)
-	var challengedelay = 18000;             //minimum delay between being challenged
-	var starthour = 9;                      //earliest hour (in players local time) to add to potential matches list
-	var endhour = 21;                       //latest hour(in players local time) to add to potential matches list
+	var challengedelay = 18000;             // minimum delay between being challenged
+	var starthour = 9;                      // earliest hour (in players local time) to add to potential matches list
+	var endhour = 21;                       // latest hour(in players local time) to add to potential matches list
     
-    // calc vars
+    // Calculation vars
 	var mintimeoffset = 0;
 	var maxtimeoffset = 0;
 	

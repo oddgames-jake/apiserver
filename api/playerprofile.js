@@ -73,17 +73,17 @@ var playerprofile = module.exports = {
             sort: {}
         };
 		
-        db.playtomic.playerprofiles.get(query, function(error, challenges){
+        db.playtomic.playerprofiles.get(query, function(error, profile){
             
             if (error) {
                 return callback("error loading profile (api.playerprofile.load)", errorcodes.GeneralError);
             }
 
-            if (!challenges || challenges.length == 0) {
-                return callback("unable to find challenge (api.playerprofile.load)", errorcodes.UnableToFindProfile);
+            if (!profile || profile.length == 0) {
+                return callback("unable to find profile (api.playerprofile.load)", errorcodes.UnableToFindProfile);
             }
-
-            return callback(null, errorcodes.NoError, clean(challenges, true)[0]);
+            
+            return callback(null, errorcodes.NoError, clean(profile, true)[0]);
         });
     },
 
@@ -195,9 +195,8 @@ function clean(profiles) {
                 profile.fields[x] = utils.unescape(profile.fields[x]);
             }
         }
-
+        
 		profile.rdate = utils.friendlyDate(utils.fromTimestamp(profile.date));
-        delete profile.hash;
 		delete profile._id;
     }
 
