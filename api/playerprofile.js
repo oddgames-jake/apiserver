@@ -83,7 +83,7 @@ var playerprofile = module.exports = {
                 return callback("unable to find profile (api.playerprofile.load)", errorcodes.UnableToFindProfile);
             }
             
-            return callback(null, errorcodes.NoError, clean(profile, true)[0]);
+            return callback(null, errorcodes.NoError, clean(profile)[0]);
         });
     },
 
@@ -92,16 +92,10 @@ var playerprofile = module.exports = {
 		if(!options.playerid) {
             return callback("unable to update player profile (api.playerprofile.update)", errorcodes.NoIDSupplied);
         }
-        // small cleanup
-        var playerprofile = {};
 
-        // fields that just aren't relevant, by doing it this way it's easier to extend because you can
-        // just add more fields directly in your game and they will end up in your scores and returned
-        // to your game
-        var exclude = ["section", "action", "ip", "date", "url", "page", "perpage", "filters", "debug"];
         
         // check for dupes/missing entry
-        db.playtomic.playerpprofiles.get({ filter: { publickey: playerprofile.publickey, profileid: options.profileid }, limit: 2}, function(error, profiles) {
+        db.playtomic.playerprofiles.get({ filter: { publickey: options.publickey, playerid: options.playerid }, limit: 2}, function(error, profiles) {
 
             if (error) {
                 return callback("unable to update profile (api.playerprofile.update)", errorcodes.GeneralError);
@@ -110,24 +104,27 @@ var playerprofile = module.exports = {
             if(profiles && profiles.length > 1 || profiles.length == 0) {
                 return callback("profile not found, cannot update", errorcodes.UnableToFindProfile, clean(profiles)[0]);
             }
-			
-			// load up player profile
-			playerprofile = profiles[0];
-			
-			// save over any data received
+            
+            // small cleanup
+            var playerprofile = {};
+
+            // fields that just aren't relevant, by doing it this way it's easier to extend because you can
+            // just add more fields directly in your game and they will end up in your scores and returned
+            // to your game
+            var exclude = ["section", "action", "ip", "date", "url", "page", "perpage", "filters", "debug"];	
+            
 			for(var x in options) {			
 				if(exclude.indexOf(x) > -1) {
 					continue;
 				}
-
                 playerprofile[x] = options[x];
 			}
 			
-            db.playtomic.playerpprofiles.update({filter: { publickey: playerprofile.publickey, profileid: playerprofile.profileid },doc: {"$set" : playerprofile}, safe: true}, function(error, playerprofile) {
-                if (error) {
+            db.playtomic.playerprofiles.update({filter: { publickey: playerprofile.publickey, playerid: playerprofile.playerid },doc: playerprofile, safe: true}, function(error2, playerprofile2) {
+                if (error2) {
                     return callback("unable to update player profile (api.playerprofile.update)", errorcodes.GeneralError);
                 }
-                return callback(null, errorcodes.NoError, clean([playerprofile])[0]);
+                return callback(null, errorcodes.NoError, clean(playerprofile));
             });
         });
     },

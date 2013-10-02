@@ -5,11 +5,9 @@ var api = require(__dirname + "/../api"),
 
 module.exports = function(payload, request, response, testcallback) {
 
-    api.playerprofiles.save(payload, function(error, errorcode, profile){
+    api.playerprofiles.update(payload, function(error, errorcode, profile){
 
-        // the exception handling differs here because a level can
-        // fail to save because it's already saved
-        if(error && !profile) {
+        if(error) {
             if(testcallback) {
                 testcallback(error);
             }
