@@ -15,7 +15,7 @@ var leaderboards = module.exports = {
      * @param callback function (error, errorcode, numscores, scores)
      */
     list:function (options, callback) {
-
+    
         // defaults
         if(!options.page) {
             options.page = 1;
@@ -112,7 +112,7 @@ var leaderboards = module.exports = {
                 scores = [];
             }
 
-            callback(null, errorcodes.NoError, numscores, clean(scores, query.skip + 1));
+            callback(null, errorcodes.NoError, numscores, clean(scores, query.skip + 1, !options.replay));
         });
     },
 
@@ -151,7 +151,8 @@ var leaderboards = module.exports = {
         // just add more fields directly in your game and they will end up in your scores and returned
         // to your game
         var exclude = ["allowduplicates", "highest", "lowest", "numfields", "section", "action",
-                        "ip", "date", "url", "rank", "points", "page", "perpage", "global", "filters", "debug"];
+                        "ip", "date", "url", "rank", "points", "page", "perpage", "global", "filters", 
+                        "debug", "returnreplay"];
 
         for(var x in options) {
             if(exclude.indexOf(x) > -1) {
@@ -161,13 +162,9 @@ var leaderboards = module.exports = {
             score[x] = options[x];
         }
 
-        score.hash = md5(options.publickey + 
-						 options.ip + "." +
+        score.hash = md5(options.publickey + "." +
                          options.table + "." +
-                         options.playername + "." +
-                         options.playerid + "." +
-                         options.highest + "." +
-                         options.source);
+                         options.playerid);
         score.points = options.points;
         score.date = datetime.now;
 		
@@ -362,7 +359,7 @@ var leaderboards = module.exports = {
 /**
  * Strips unnceessary data and tidies a score object
  */
-function clean(scores, baserank) {
+function clean(scores, baserank, filter) {
 
     for(var i=0; i<scores.length; i++) {
 
@@ -373,7 +370,9 @@ function clean(scores, baserank) {
                 score[x] = utils.unescape(score[x]);
             }
         }
-
+        if(filter)
+            delete score.replay;
+            
         for(var x in score.fields) {
             if(typeof(score.fields[x]) == "String") {
                 score.fields[x] = utils.unescape(score.fields[x]);

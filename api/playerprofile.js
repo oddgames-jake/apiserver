@@ -163,7 +163,7 @@ var playerprofile = module.exports = {
 		
             playerprofile["challengestoday"] = 0;
             playerprofile["challengedtime"] = 0;
-		
+            playerprofile["lastping"] = datetime.now;
             db.playtomic.playerprofiles.insert({doc: playerprofile, safe: true}, function(error, playerprofile) {
                 if (error) {
                     return callback("unable to create profile (api.playerprofiles.creare)", errorcodes.GeneralError);
