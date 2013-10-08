@@ -55,18 +55,20 @@ var leaderboards = module.exports = {
         }
         
         // filtering for playerids
-		var playerids = [];
-		
-        if(options.playerid && !options.excludeplayerid) {
-            playerids.push(options.playerid);
-        }
-        
-        if(options.friendslist) {
-			playerids = playerids.concat(options.friendslist);
-		}
-		
-		if(playerids.length > 0) {
-            query.filter.playerid = { $in: playerids };
+        if(options.filterbyid){
+            var playerids = [];
+            
+            if(options.playerid && !options.excludeplayerid) {
+                playerids.push(options.playerid);
+            }
+            
+            if(options.friendslist) {
+                playerids = playerids.concat(options.friendslist);
+            }
+            
+            if(playerids.length > 0) {
+                query.filter.playerid = { $in: playerids };
+            }
         }
 
         // date mode
@@ -97,6 +99,12 @@ var leaderboards = module.exports = {
             query.sort = { points: options.highest || !options.lowest ? -1 : 1 };
         }
 
+        if(!options.replay) {
+            query["fields"] = {
+                replay: false,
+            };
+        }
+        
         // the scores
         //console.log(JSON.stringify(query));
 
@@ -111,11 +119,90 @@ var leaderboards = module.exports = {
             if(!scores) {
                 scores = [];
             }
-
-            callback(null, errorcodes.NoError, numscores, clean(scores, query.skip + 1, !options.replay));
+            
+            callback(null, errorcodes.NoError, numscores, clean(scores, query.skip + 1));
         });
     },
 
+    /**
+     * Pulls back a replay from a specified leaderboard entry
+     *
+     */
+    getreplay: function (options, callback) {
+        if(!options.hash)
+            callback("no hash provided", errorcodes.GeneralError);
+            
+        var query = {
+            
+            filter: {
+                publickey: options.publickey,
+                hash: options.hash
+            },
+            
+            limit: 1,
+            skip: (options.page - 1) * options.perpage,
+            sort: {}
+        };
+        
+        db.playtomic.leaderboard_scores.get(query, function(error, score){
+            if(error) 
+                return callback("database error",errorcodes.GeneralError);
+            
+            if(score.length == 0)
+                return callback("challenge not found", errorcodes.GeneralError);
+                
+            return callback(null, errorcodes.NoError, score);
+        });
+    },
+    
+    /**
+    *   Pulls out leaderboard records and replays with a similar performance to the players current record.
+    * @param options:  table, highest, pointdifference, returnammount
+    * @param callback function (error, errorcode, scores)
+    */
+    getrivalreplays: function(options, callback) {
+        
+        if(!options.table || !options.pointdifference || !options.returnamount)
+            return callback("missing information (api.leaderboards.getRivalReplays",errorcodes.GeneralError);
+            
+        var query = {
+            filter: {
+                table: options.table,
+                publickey: options.publickey
+            },            
+            sort: options.highest ? {points : 1} : {points: -1},
+        };
+        
+        var pointArray = new Array();
+        for(var i = 1; i <= options.returnamount; i++) {
+            pointArray.push(i * options.pointdifference* (options.highest ? 1 : -1));
+        }
+        var replays = [];
+        
+        // search in series to prevent hogging db connections
+        function series(item) {
+            if(item) {
+                if(options.highest)
+                    query.filter["points"] = {"$gte" : options.points + item};
+                else
+                    query.filter["points"] = {"$lte" : options.points + item};
+                    
+                db.playtomic.leaderboard_scores.get(query, function(error, replay) {
+                    if(!error && replay.length > 0)
+                        replays.push(replay[0]);
+                        
+                    return series(pointArray.shift());
+                });
+                
+            } 
+            else {
+                return callback(null,errorcodes.NoError,clean(replays));
+            }
+        }
+        
+        series(pointArray.shift());
+    
+    },
     /**
      * Saves a score
      * @param options: url, name, points, auth, playerid, table, highest, allowduplicates, customfields ass. array
@@ -167,7 +254,11 @@ var leaderboards = module.exports = {
                          options.playerid);
         score.points = options.points;
         score.date = datetime.now;
-		
+
+        if(options.replay) {
+            //options.replay = new Buffer(options.replay,"base64");
+		//console.log(options.replay, " " ,options.replay.length);
+        }
         // check bans
 
         // insert
@@ -302,6 +393,11 @@ var leaderboards = module.exports = {
             {
                 options.page = Math.ceil((numscores + 1) / options.perpage);
 
+                if(options.above && options.afterlength) {
+                    options.perpage = 99999999;
+                    options.page = 1;
+                }
+                    
                 leaderboards.list(options, function(error, errorcode, numscores, scores) {
 
                     if(error) {
@@ -315,13 +411,15 @@ var leaderboards = module.exports = {
 
                     var foundsubmitted = false;
                     var i;
-                    
+                    var index = -1;
+
                     for(i=0; i<scores.length; i++)
                     {
                         if(scores[i].scoreid == insertedid)
                         {
                             scores[i].submitted = true;
                             foundsubmitted = true;
+                            index = i;
                         }
                     }
 
@@ -329,6 +427,9 @@ var leaderboards = module.exports = {
                     // person got stuck with the cached results, for this case we find
                     // where they should be and inject them
                     var inserted = false;
+                    if(!insertedscore) {
+                        insertedscore = options;
+                    }
                     if(!foundsubmitted) { 
                         for(i=0; i<scores.length; i++) {
 
@@ -337,7 +438,7 @@ var leaderboards = module.exports = {
                                 continue;
                             }
 
-                            inserted.splice(i, 0, insertedscore);
+                            scores.splice(i, 0, insertedscore);
                             inserted = true;
                             break;
                         }
@@ -347,7 +448,28 @@ var leaderboards = module.exports = {
                         if(!inserted) {
                             scores.push(insertedscore);
                         }
+                        
+                        for(i = 0; i < scores.length; i++) {
+                            if(scores[i].playerid != options.playerid)
+                                continue;
+                            index = i;
+                        }
                     }
+                    
+                    if(options.afterlength) {
+                        // remove extra stuff after
+                        if(index + options.afterlength < scores.length)
+                            scores.splice(index + options.afterlength +1, scores.length + 1 - (index  + options.afterlength));
+                    }
+                    
+                    if(options.above) {
+                        // remove extra stuff before
+                        if(index - options.above > 0)
+                        scores.splice(0,index - options.above);
+                    }
+
+                
+                    
 
                     callback(null, errorcode, numscores, scores);
                 });
@@ -359,7 +481,7 @@ var leaderboards = module.exports = {
 /**
  * Strips unnceessary data and tidies a score object
  */
-function clean(scores, baserank, filter) {
+function clean(scores, baserank) {
 
     for(var i=0; i<scores.length; i++) {
 
@@ -370,8 +492,6 @@ function clean(scores, baserank, filter) {
                 score[x] = utils.unescape(score[x]);
             }
         }
-        if(filter)
-            delete score.replay;
             
         for(var x in score.fields) {
             if(typeof(score.fields[x]) == "String") {
@@ -383,7 +503,6 @@ function clean(scores, baserank, filter) {
         score.scoreid = score._id.toString();
 		score.rdate = utils.friendlyDate(utils.fromTimestamp(score.date));
         delete score._id;
-        delete score.hash;
     }
 
     return scores;
