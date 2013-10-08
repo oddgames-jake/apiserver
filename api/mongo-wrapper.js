@@ -435,7 +435,7 @@ module.exports = db = {
                 return;
             }
 
-            collection.find(options.filter || {}).limit(options.limit || 0).skip(options.skip || 0).sort(options.sort || {}).toArray(function (error, items) {
+            collection.find(options.filter || {}, options.fields || {}).limit(options.limit || 0).skip(options.skip || 0).sort(options.sort || {}).toArray(function (error, items) {
 
                 if (error) {
 
